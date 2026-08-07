@@ -1,0 +1,31 @@
+site_name: Philterd Appliance
+repo_url: https://github.com/philterd/philterd-appliance
+site_url: https://philterd.github.io/philterd-appliance/
+edit_uri: '?query=docs/docs/'
+copyright: Copyright 2026 Philterd, LLC.
+site_author: philterd
+site_description: User guide for the Philterd Appliance, a self-hosted bundle of Philterd's PII and PHI redaction tools.
+theme:
+  name: material
+  locale: en
+  palette:
+    primary: red
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Profiles and ports: profiles-and-ports.md
+  - Configuration:
+      - Secrets: configuration/secrets.md
+      - TLS: configuration/tls.md
+      - Bill of materials: configuration/bill-of-materials.md
+  - Products:
+      - Console: products/console.md
+      - Philter Scope: products/philter-scope.md
+  - Reference:
+      - Health and metrics: observability.md
+      - Image publishing: publishing.md

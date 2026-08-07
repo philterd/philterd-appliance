@@ -1,4 +1,4 @@
-# Health and metrics coverage
+# Health and metrics
 
 What the appliance console can actually tell you about each product, and where
 that falls short. Verified against the local checkouts on 2026-08-07.
@@ -10,6 +10,7 @@ that falls short. Verified against the local checkouts on 2026-08-07.
 | Philter 4.0 | `/actuator/health` | `/actuator/prometheus` | Fully instrumented. `management.endpoints.web.exposure.include=health,prometheus`, and `SecurityConfig` permits `/actuator/**` without authentication. |
 | PhEye | `/status` | none | The handler returns the literal string `healthy` with no check behind it. |
 | Redaction policy editor | none | none | Spring Boot with `web` and `thymeleaf` starters, no actuator dependency. |
+| Philter Scope | none | none | Go service. Its mux serves `/api/*` and `/`, with no health route. |
 | Arbiter | none | none | No actuator dependency in any of its three modules. |
 | MongoDB | not HTTP | none | Probed by compose with `mongosh`, not visible to the console. |
 | OpenSearch | `/` on 9200 | available but off | Not currently surfaced. |
@@ -32,15 +33,21 @@ model from one that is broken. PhEye also exposes no metrics, which means the
 appliance has no visibility into inference latency or throughput, the numbers
 most likely to explain a slow redaction.
 
+**Philter Scope has no health endpoint.** Its HTTP mux registers `/api/history`,
+`/api/audit`, the recommendation and notes routes, and `/`, but nothing that
+reports health. The console falls back to probing `/`.
+
 **Only Philter can be scraped.** An appliance-wide Prometheus and dashboard is
 not worth building until at least Arbiter and PhEye expose metrics.
 
 ## Why this matters for the appliance
 
-The console currently reports "running" for three of four products purely
+The console currently reports "running" for four of five products purely
 because their root path answers. That is honest but thin: a product can be
 serving its login page while its database connection is broken, and the console
 would still show it green.
+
+Tracked in [philterd-appliance#2](https://github.com/philterd/philterd-appliance/issues/2).
 
 Closing these gaps also benefits each product standalone, not just the
 appliance, since health and metrics endpoints are what anyone running these in

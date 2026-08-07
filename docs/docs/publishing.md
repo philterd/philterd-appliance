@@ -1,4 +1,4 @@
-# Promoting a component from build to registry
+# Image publishing
 
 The appliance builds any component whose image is not published, tagging it
 with the name it will eventually carry. That keeps the appliance shippable, but
@@ -27,10 +27,11 @@ Verified against Docker Hub and the local checkouts.
 | `philter-ai-proxy` | Hub repository exists but carries zero tags. | Add publishing CI. |
 | `arbiter` | Has a Dockerfile, no publishing CI. | Add publishing CI. |
 | `phinder` | Has a Dockerfile, no publishing CI. | Add publishing CI. |
+| `philterscope` | Had no Dockerfile at all. One was written for the appliance and is not yet merged upstream. | Merge the Dockerfile, then add publishing CI. |
 
 ### Not containerizable yet
 
-`philterscope` and `phisql` have no Dockerfile in their repositories.
+`phisql` has no Dockerfile in its repository.
 
 `phield` is not checked out locally and has not been assessed.
 

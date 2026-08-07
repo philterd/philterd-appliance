@@ -1,17 +1,12 @@
-# Philterd Appliance bill of materials.
+# Philterd Appliance bill of materials. The single source of truth for what
+# the appliance ships.
 #
-# This file is the single source of truth for what the appliance ships. Every
-# component resolves to a container image reference. The `source` field records
-# how that image comes into existence:
+#   registry   published, pulled as-is
+#   build      not published yet, so it is built and tagged with the name it
+#              will carry once it is
 #
-#   registry   the image is published, so it is pulled as-is
-#   build      the image is not published yet, so the appliance builds it and
-#              tags it with the exact name it will carry once it is published
-#
-# Because a built image is tagged with its eventual registry name, nothing
-# outside this file needs to know which tier a component is in. Promoting a
-# component once its repository gains publishing CI is a one-line change here:
-# set `source: registry` and drop the build keys.
+# Nothing outside this file knows which tier a component is in. Promoting one
+# means setting `source: registry` and dropping the build keys.
 #
 # Verified against Docker Hub on 2026-08-07.
 
@@ -73,6 +68,21 @@ components:
     source: registry
     profile: core
     description: No-code editor for building Philter redaction policies.
+
+  - name: philterscope
+    image: philterd/philterscope
+    version: "0.1.0"
+    source: build
+    dir: philterscope
+    repo: https://github.com/philterd/philterscope.git
+    ref: main
+    profile: core
+    description: >
+      Scores redaction output against a golden dataset and hosts the
+      evaluation UI. The image carries both binaries: philterscope-serve for
+      the UI and philterscope-audit for a one-shot audit run.
+
+      The Dockerfile it builds from is new and not yet merged upstream.
 
   # ------------------------------------------------------------ dependencies --
 
@@ -139,7 +149,7 @@ components:
 
 # Products deliberately absent from the appliance for now:
 #
-#   philterscope, phisql   No Dockerfile in either repository, so there is
+#   phisql                 No Dockerfile in the repository, so there is
 #                          nothing to containerize yet.
 #   phield                 Not checked out locally and not yet assessed.
 #   philterdiffuse         Has a Dockerfile, but no appliance use case defined.

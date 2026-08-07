@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
 """Read bom.yaml and act on it.
 
-The bill of materials records, for every component, the image reference the
-appliance expects and how that image comes into existence. Components marked
-`source: registry` are pulled. Components marked `source: build` are built
-locally and tagged with the exact image name they will carry once their
-repository gains publishing CI, so that docker-compose.yaml can refer to every
-component the same way regardless of tier.
-
-Subcommands:
+Components marked `source: registry` are pulled. Those marked `source: build`
+are built locally and tagged with the name they will carry once published, so
+compose can refer to every component the same way regardless of tier.
 
     list         show every component and its tier
     render-env   emit IMG_* assignments for compose to interpolate
@@ -53,15 +48,13 @@ def select(components, names):
 
 
 def build_context(component, source_root):
-    """Where to build a component from, preferring a local checkout.
+    """Where to build a component from, preferring a sibling checkout.
 
-    A sibling checkout is used when one exists, so that iterating on a product
-    does not require pushing first. Otherwise Docker builds straight from the
-    remote git URL, which keeps this repository free of submodules and
-    vendored source.
+    Falls back to the remote git URL, which keeps this repository free of
+    submodules and vendored source.
     """
     if "context" in component:
-        # Built from this repository, not a sibling.
+        # From this repository, not a sibling.
         return str(ROOT / component["context"]), "in-repo"
 
     if "dir" in component:

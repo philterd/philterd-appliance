@@ -1,24 +1,19 @@
 #!/bin/sh
-#
-# Render the console page from its template at container start.
-#
-# The nginx image runs every executable in /docker-entrypoint.d before starting
-# nginx. This substitutes the appliance's host ports into the page so the tiles
-# link to whatever ports this deployment was configured with, rather than
-# hardcoding them into the HTML.
+# Substitute the appliance's host ports into the console page at start.
+# The nginx image runs everything in /docker-entrypoint.d before starting.
 
 set -eu
 
 : "${PHILTER_PORT:=8444}"
 : "${POLICY_EDITOR_PORT:=8445}"
 : "${ARBITER_PORT:=8446}"
+: "${PHILTERSCOPE_PORT:=8447}"
 
-export PHILTER_PORT POLICY_EDITOR_PORT ARBITER_PORT
+export PHILTER_PORT POLICY_EDITOR_PORT ARBITER_PORT PHILTERSCOPE_PORT
 
-# The variable list is explicit so that envsubst leaves any other $ in the
-# page's CSS or JavaScript untouched.
-envsubst '${PHILTER_PORT} ${POLICY_EDITOR_PORT} ${ARBITER_PORT}' \
+# Explicit list, so other $ in the page's CSS and JavaScript is left alone.
+envsubst '${PHILTER_PORT} ${POLICY_EDITOR_PORT} ${ARBITER_PORT} ${PHILTERSCOPE_PORT}' \
 	< /usr/share/nginx/html/index.html.template \
 	> /usr/share/nginx/html/index.html
 
-echo "console: rendered index.html (philter=$PHILTER_PORT policy-editor=$POLICY_EDITOR_PORT arbiter=$ARBITER_PORT)"
+echo "console: rendered index.html"

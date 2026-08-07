@@ -13,3 +13,7 @@ data/
 # Editor scratch
 *.swp
 *~
+
+# mkdocs build output
+docs/site/
+.cache/

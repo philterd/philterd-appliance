@@ -1,20 +1,8 @@
 #!/usr/bin/env bash
 #
-# Prepare the appliance for its first run.
+# Generate the encryption keys and TLS certificate the appliance needs to start.
+# Pass --cert and --key to use certificates you already have.
 #
-# Two things have to exist before anything will start:
-#
-#   1. Encryption keys. Philter and Arbiter each require a base64-encoded
-#      32-byte AES key and refuse to start without one.
-#   2. A TLS certificate. The proxy terminates TLS for every service.
-#
-# By default this generates both, with a self-signed certificate covering
-# localhost, this host's name, and its routable addresses. Pass --cert and
-# --key to point the appliance at certificates you already have instead; the
-# paths are recorded in .env and mounted into the proxy, so no nginx
-# configuration changes either way.
-#
-# Usage:
 #   appliance-bootstrap
 #   appliance-bootstrap --cert /etc/ssl/philterd.crt --key /etc/ssl/philterd.key
 
@@ -90,9 +78,8 @@ elif [[ -f "$tls_dir/appliance.crt" && -f "$tls_dir/appliance.key" ]]; then
 	echo "Delete it and re-run to regenerate, or pass --cert and --key to replace it."
 
 else
-	# Cover every name the appliance is plausibly reached by. A browser
-	# validates the name it was given, so a certificate for localhost alone
-	# would warn for anyone connecting over the network.
+	# Cover every name the appliance may be reached by: a browser validates the
+	# name it was given, so localhost alone would warn over the network.
 	sans="DNS:localhost,IP:127.0.0.1"
 
 	fqdn="$(hostname -f 2>/dev/null || hostname 2>/dev/null || true)"
@@ -105,10 +92,8 @@ else
 		sans="$sans,DNS:$short"
 	fi
 
-	# Addresses are read per interface rather than from `hostname -I`, which
-	# returns the gateway address of every Docker bridge as well. An appliance
-	# host always runs Docker, so that would otherwise put a dozen useless
-	# 172.x.0.1 entries in every certificate.
+	# Per interface, not `hostname -I`: that also returns every Docker bridge
+	# gateway, putting a dozen useless 172.x.0.1 entries in the certificate.
 	if command -v ip >/dev/null 2>&1; then
 		while read -r ifname cidr; do
 			case "$ifname" in
@@ -199,6 +184,12 @@ APPLIANCE_PORT=8443
 PHILTER_PORT=8444
 POLICY_EDITOR_PORT=8445
 ARBITER_PORT=8446
+PHILTERSCOPE_PORT=8447
+
+# The one-shot audit writes reports into a host directory, so it runs as the
+# user that owns it rather than as the image's own account.
+APPLIANCE_UID=$(id -u)
+APPLIANCE_GID=$(id -g)
 EOF
 
 chmod 600 "$env_file"
