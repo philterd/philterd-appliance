@@ -1,0 +1,212 @@
+#!/usr/bin/env bash
+#
+# Prepare the appliance for its first run.
+#
+# Two things have to exist before anything will start:
+#
+#   1. Encryption keys. Philter and Arbiter each require a base64-encoded
+#      32-byte AES key and refuse to start without one.
+#   2. A TLS certificate. The proxy terminates TLS for every service.
+#
+# By default this generates both, with a self-signed certificate covering
+# localhost, this host's name, and its routable addresses. Pass --cert and
+# --key to point the appliance at certificates you already have instead; the
+# paths are recorded in .env and mounted into the proxy, so no nginx
+# configuration changes either way.
+#
+# Usage:
+#   appliance-bootstrap
+#   appliance-bootstrap --cert /etc/ssl/philterd.crt --key /etc/ssl/philterd.key
+
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+env_file="$root/.env"
+tls_dir="$root/proxy/tls"
+
+cert_path=""
+key_path=""
+
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+	--cert)
+		cert_path="${2:-}"
+		shift 2
+		;;
+	--key)
+		key_path="${2:-}"
+		shift 2
+		;;
+	-h | --help)
+		sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+		exit 0
+		;;
+	*)
+		echo "unknown argument: $1" >&2
+		exit 1
+		;;
+	esac
+done
+
+if [[ -n "$cert_path" && -z "$key_path" ]] || [[ -z "$cert_path" && -n "$key_path" ]]; then
+	echo "--cert and --key must be given together" >&2
+	exit 1
+fi
+
+command -v openssl >/dev/null 2>&1 || {
+	echo "openssl is required" >&2
+	exit 1
+}
+
+# --------------------------------------------------------------------- TLS --
+
+if [[ -n "$cert_path" ]]; then
+	for f in "$cert_path" "$key_path"; do
+		[[ -r "$f" ]] || {
+			echo "cannot read $f" >&2
+			exit 1
+		}
+	done
+
+	# Absolute paths, because compose resolves bind mounts relative to this
+	# repository and the certificates usually live outside it.
+	cert_path="$(cd "$(dirname "$cert_path")" && pwd)/$(basename "$cert_path")"
+	key_path="$(cd "$(dirname "$key_path")" && pwd)/$(basename "$key_path")"
+
+	if ! openssl x509 -in "$cert_path" -noout >/dev/null 2>&1; then
+		echo "$cert_path is not a readable PEM certificate" >&2
+		exit 1
+	fi
+
+	echo "Using certificate: $cert_path"
+	echo "Using key:         $key_path"
+	echo "Subject:           $(openssl x509 -in "$cert_path" -noout -subject | sed 's/^subject=//')"
+	echo "Expires:           $(openssl x509 -in "$cert_path" -noout -enddate | sed 's/^notAfter=//')"
+
+elif [[ -f "$tls_dir/appliance.crt" && -f "$tls_dir/appliance.key" ]]; then
+	cert_path="./proxy/tls/appliance.crt"
+	key_path="./proxy/tls/appliance.key"
+	echo "Keeping the existing self-signed certificate in proxy/tls/."
+	echo "Delete it and re-run to regenerate, or pass --cert and --key to replace it."
+
+else
+	# Cover every name the appliance is plausibly reached by. A browser
+	# validates the name it was given, so a certificate for localhost alone
+	# would warn for anyone connecting over the network.
+	sans="DNS:localhost,IP:127.0.0.1"
+
+	fqdn="$(hostname -f 2>/dev/null || hostname 2>/dev/null || true)"
+	if [[ -n "$fqdn" && "$fqdn" != "localhost" ]]; then
+		sans="$sans,DNS:$fqdn"
+	fi
+
+	short="$(hostname -s 2>/dev/null || true)"
+	if [[ -n "$short" && "$short" != "$fqdn" && "$short" != "localhost" ]]; then
+		sans="$sans,DNS:$short"
+	fi
+
+	# Addresses are read per interface rather than from `hostname -I`, which
+	# returns the gateway address of every Docker bridge as well. An appliance
+	# host always runs Docker, so that would otherwise put a dozen useless
+	# 172.x.0.1 entries in every certificate.
+	if command -v ip >/dev/null 2>&1; then
+		while read -r ifname cidr; do
+			case "$ifname" in
+			lo | docker* | br-* | veth* | virbr* | cni* | flannel* | kube*) continue ;;
+			esac
+			sans="$sans,IP:${cidr%%/*}"
+		done < <(ip -o -4 addr show 2>/dev/null | awk '{print $2, $4}')
+	else
+		for ip in $(hostname -I 2>/dev/null || true); do
+			case "$ip" in
+			*:* | 127.*) continue ;;
+			esac
+			sans="$sans,IP:$ip"
+		done
+	fi
+
+	mkdir -p "$tls_dir"
+	(
+		umask 077
+		openssl req -x509 -newkey rsa:2048 -sha256 -days 3650 -nodes \
+			-keyout "$tls_dir/appliance.key" \
+			-out "$tls_dir/appliance.crt" \
+			-subj "/CN=Philterd Appliance" \
+			-addext "subjectAltName=$sans" \
+			-addext "basicConstraints=critical,CA:FALSE" \
+			-addext "keyUsage=critical,digitalSignature,keyEncipherment" \
+			-addext "extendedKeyUsage=serverAuth" \
+			2>/dev/null
+	)
+	chmod 600 "$tls_dir/appliance.key"
+	chmod 644 "$tls_dir/appliance.crt"
+
+	cert_path="./proxy/tls/appliance.crt"
+	key_path="./proxy/tls/appliance.key"
+
+	echo "Generated a self-signed certificate in proxy/tls/ valid for 10 years."
+	echo "Names covered: $sans"
+	echo
+	echo "Browsers will warn until this certificate is trusted, because nothing"
+	echo "vouches for it. Import proxy/tls/appliance.crt into your trust store,"
+	echo "or re-run with --cert and --key to use certificates of your own."
+fi
+
+# --------------------------------------------------------------------- env --
+
+key() { openssl rand -base64 32; }
+password() { openssl rand -base64 24 | tr -d '/+=' | cut -c1-20; }
+
+if [[ -f "$env_file" ]]; then
+	echo
+	echo "$env_file already exists, so its secrets were left alone."
+	echo "Rotating the encryption keys would orphan anything already encrypted"
+	echo "with the old ones, so delete it deliberately if that is what you want."
+
+	# The certificate may have changed even when the secrets have not.
+	tmp="$(mktemp)"
+	trap 'rm -f "$tmp"' EXIT
+	sed -e "s|^APPLIANCE_TLS_CERT=.*|APPLIANCE_TLS_CERT=$cert_path|" \
+		-e "s|^APPLIANCE_TLS_KEY=.*|APPLIANCE_TLS_KEY=$key_path|" \
+		"$env_file" >"$tmp"
+	cat "$tmp" >"$env_file"
+	echo "Certificate paths in .env updated."
+	exit 0
+fi
+
+umask 077
+cat >"$env_file" <<EOF
+# Generated by bin/appliance-bootstrap.
+#
+# Contains the appliance's encryption keys. Back this file up somewhere safe
+# and never commit it. Losing PHILTER_ENCRYPTION_KEY makes Philter's encrypted
+# data unrecoverable; leaking it defeats encryption at rest entirely.
+
+PHILTER_ENCRYPTION_KEY=$(key)
+ARBITER_CRYPTO_SECRET=$(key)
+
+PHILTER_BOOTSTRAP_API_KEY=$(password)
+ARBITER_ADMIN_INITIAL_PASSWORD=$(password)
+
+# TLS material mounted into the proxy. Point these at your own certificate to
+# replace the generated one; no nginx configuration changes. Re-running
+# bootstrap with --cert and --key rewrites these two lines.
+APPLIANCE_TLS_CERT=$cert_path
+APPLIANCE_TLS_KEY=$key_path
+
+# Host ports. Every one of these is served over HTTPS by the appliance proxy.
+APPLIANCE_PORT=8443
+PHILTER_PORT=8444
+POLICY_EDITOR_PORT=8445
+ARBITER_PORT=8446
+EOF
+
+chmod 600 "$env_file"
+
+echo
+echo "Wrote $env_file with fresh secrets (mode 600)."
+echo
+echo "Philter bootstrap API key:  $(grep '^PHILTER_BOOTSTRAP_API_KEY=' "$env_file" | cut -d= -f2)"
+echo "Arbiter admin password:     $(grep '^ARBITER_ADMIN_INITIAL_PASSWORD=' "$env_file" | cut -d= -f2)"
+echo
+echo "Back up this file. Then run: make up"

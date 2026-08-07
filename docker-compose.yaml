@@ -1,0 +1,136 @@
+# Philterd Appliance.
+#
+# IMG_* variables come from bom.yaml via `make images`.
+# Services without a `profiles` key are the core profile and always start.
+# Only the proxy binds host ports.
+
+name: philterd-appliance
+
+services:
+
+  # One listener per product, because Vaadin and Spring UIs assume they own the
+  # root of their origin.
+  proxy:
+    image: nginx:1.29-alpine
+    restart: unless-stopped
+    ports:
+      - "${APPLIANCE_PORT:-8443}:8443"
+      - "${PHILTER_PORT:-8444}:8444"
+      - "${POLICY_EDITOR_PORT:-8445}:8445"
+      - "${ARBITER_PORT:-8446}:8446"
+    volumes:
+      - ./proxy/appliance.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./proxy/proxy-common.conf:/etc/nginx/appliance/proxy-common.conf:ro
+      # Swapping certificates changes the mount source, not the nginx config.
+      - ${APPLIANCE_TLS_CERT:-./proxy/tls/appliance.crt}:/etc/nginx/tls/appliance.crt:ro
+      - ${APPLIANCE_TLS_KEY:-./proxy/tls/appliance.key}:/etc/nginx/tls/appliance.key:ro
+    depends_on:
+      console:
+        condition: service_started
+    networks: [appliance]
+
+  console:
+    image: ${IMG_CONSOLE}
+    restart: unless-stopped
+    environment:
+      # Substituted into the console's links at container start.
+      PHILTER_PORT: "${PHILTER_PORT:-8444}"
+      POLICY_EDITOR_PORT: "${POLICY_EDITOR_PORT:-8445}"
+      ARBITER_PORT: "${ARBITER_PORT:-8446}"
+    networks: [appliance]
+
+  philter:
+    image: ${IMG_PHILTER}
+    restart: unless-stopped
+    environment:
+      # The proxy terminates TLS. The published image defaults this to true.
+      SSL_ENABLED: "false"
+      MONGODB_CONNECTION_STRING: mongodb://mongodb:27017/philter
+      PHILTER_ENCRYPTION_KEY: ${PHILTER_ENCRYPTION_KEY:?run 'make bootstrap' first}
+      # Seeded on first start, only when the admin user has no keys.
+      PHILTER_BOOTSTRAP_API_KEY: ${PHILTER_BOOTSTRAP_API_KEY:-}
+      ADMIN_CROSS_USER_ACCESS_ENABLED: "true"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      ph-eye:
+        condition: service_started
+    networks: [appliance]
+
+  # Philter resolves its model endpoint by this hostname. Renaming needs a
+  # matching Philter config change.
+  ph-eye:
+    image: ${IMG_PH_EYE}
+    restart: unless-stopped
+    networks: [appliance]
+
+  mongodb:
+    image: ${IMG_MONGODB}
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: philter
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks: [appliance]
+
+  policy-editor:
+    image: ${IMG_POLICY_EDITOR}
+    restart: unless-stopped
+    environment:
+      HIDE_PII_WARNING: "0"
+    networks: [appliance]
+
+  # Arbiter needs only MongoDB and OpenSearch in production. The MinIO,
+  # Postgres and Elasticsearch in its own compose back demo data sources.
+  arbiter:
+    image: ${IMG_ARBITER}
+    profiles: [full]
+    restart: unless-stopped
+    environment:
+      SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/arbiter
+      ARBITER_CRYPTO_SECRET: ${ARBITER_CRYPTO_SECRET:?run 'make bootstrap' first}
+      ARBITER_ADMIN_INITIAL_PASSWORD: ${ARBITER_ADMIN_INITIAL_PASSWORD:?run 'make bootstrap' first}
+      ARBITER_DEMO_DATA_ENABLED: "false"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+    networks: [appliance]
+
+  opensearch:
+    image: opensearchproject/opensearch:3.6.0
+    profiles: [full]
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      bootstrap.memory_lock: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+      DISABLE_SECURITY_PLUGIN: "true"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200 >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks: [appliance]
+
+networks:
+  appliance:
+
+volumes:
+  mongo-data:
+  opensearch-data:

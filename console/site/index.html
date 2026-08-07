@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Philterd Appliance</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --ink: #16191d;
+    --muted: #5b6570;
+    --line: #dfe3e8;
+    --accent: #1f6feb;
+    --up: #1a7f45;
+    --down: #b3261e;
+    --unknown: #8a8f96;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1216;
+      --card: #171b21;
+      --ink: #e6e9ed;
+      --muted: #9aa4b0;
+      --line: #272d35;
+      --accent: #4c8dff;
+      --up: #3fb950;
+      --down: #f85149;
+      --unknown: #6e7681;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 3rem 1.5rem;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 62rem; margin: 0 auto; }
+  h1 { margin: 0 0 .25rem; font-size: 1.6rem; letter-spacing: -.01em; }
+  .sub { margin: 0 0 2.5rem; color: var(--muted); }
+  h2 {
+    margin: 2.5rem 0 .9rem;
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  h2:first-of-type { margin-top: 0; }
+  .grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  }
+  .tile {
+    display: block;
+    padding: 1.15rem 1.25rem;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: .6rem;
+    text-decoration: none;
+    color: inherit;
+  }
+  a.tile { transition: border-color .15s, transform .15s; }
+  a.tile:hover { border-color: var(--accent); transform: translateY(-1px); }
+  a.tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .tile.passive { opacity: .92; }
+  .head { display: flex; align-items: baseline; gap: .55rem; margin-bottom: .3rem; }
+  .name { font-weight: 600; }
+  .desc { color: var(--muted); font-size: .875rem; }
+  .dot {
+    width: .55rem; height: .55rem;
+    border-radius: 50%;
+    background: var(--unknown);
+    flex: none;
+    transform: translateY(-1px);
+  }
+  .dot.up { background: var(--up); }
+  .dot.down { background: var(--down); }
+  .state { margin-left: auto; font-size: .78rem; color: var(--muted); }
+  .note {
+    margin-top: 2.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: .85rem;
+  }
+  code { font-size: .85em; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Philterd Appliance</h1>
+  <p class="sub">Self-hosted PII and PHI redaction. Everything below runs on this machine.</p>
+
+  <h2>Applications</h2>
+  <div class="grid" id="apps"></div>
+
+  <h2>Services</h2>
+  <div class="grid" id="services"></div>
+
+  <p class="note" id="note">
+    Status is polled every 15 seconds through the appliance's internal network.
+    A service marked unavailable is either not running or not reachable; Arbiter
+    only runs under the <code>full</code> profile.
+  </p>
+</main>
+
+<script>
+  // Ports are substituted from the container environment at start by
+  // docker-entrypoint.d/40-render-console.sh. The hostname comes from the
+  // browser instead, so links stay correct when the appliance is reached from
+  // another machine.
+  var APPS = [
+    {
+      id: "philter",
+      name: "Philter",
+      desc: "Redaction API and dashboard.",
+      port: ${PHILTER_PORT}
+    },
+    {
+      id: "policy-editor",
+      name: "Redaction Policy Editor",
+      desc: "Build and edit redaction policies.",
+      port: ${POLICY_EDITOR_PORT}
+    },
+    {
+      id: "arbiter",
+      name: "Arbiter",
+      desc: "Human review of detected spans.",
+      port: ${ARBITER_PORT}
+    }
+  ];
+
+  // No web interface of its own, so it is shown for status only.
+  var SERVICES = [
+    {
+      id: "ph-eye",
+      name: "PhEye",
+      desc: "Detection models used by Philter."
+    }
+  ];
+
+  function tile(item, href) {
+    var el = document.createElement(href ? "a" : "div");
+    el.className = "tile" + (href ? "" : " passive");
+    if (href) { el.href = href; }
+
+    var head = document.createElement("div");
+    head.className = "head";
+
+    var dot = document.createElement("span");
+    dot.className = "dot";
+    dot.id = "dot-" + item.id;
+
+    var name = document.createElement("span");
+    name.className = "name";
+    name.textContent = item.name;
+
+    var state = document.createElement("span");
+    state.className = "state";
+    state.id = "state-" + item.id;
+    state.textContent = "checking";
+
+    head.appendChild(dot);
+    head.appendChild(name);
+    head.appendChild(state);
+
+    var desc = document.createElement("div");
+    desc.className = "desc";
+    desc.textContent = item.desc;
+
+    el.appendChild(head);
+    el.appendChild(desc);
+    return el;
+  }
+
+  var appsEl = document.getElementById("apps");
+  APPS.forEach(function (a) {
+    appsEl.appendChild(tile(a, "https://" + location.hostname + ":" + a.port + "/"));
+  });
+
+  var servicesEl = document.getElementById("services");
+  SERVICES.forEach(function (s) {
+    servicesEl.appendChild(tile(s, null));
+  });
+
+  function setState(id, cls, text) {
+    var dot = document.getElementById("dot-" + id);
+    var state = document.getElementById("state-" + id);
+    if (!dot || !state) { return; }
+    dot.className = "dot" + (cls ? " " + cls : "");
+    state.textContent = text;
+  }
+
+  function probe(item) {
+    // Any HTTP status from the product means it is serving: a redirect to a
+    // login page or a 401 is still a live application. 502 and 504 come from
+    // this console's nginx when the product cannot be reached at all.
+    fetch("/probe/" + item.id, { cache: "no-store" })
+      .then(function (r) {
+        if (r.status === 502 || r.status === 504) {
+          setState(item.id, "down", "unavailable");
+        } else {
+          setState(item.id, "up", "running");
+        }
+      })
+      .catch(function () {
+        setState(item.id, "", "unknown");
+      });
+  }
+
+  function poll() {
+    APPS.concat(SERVICES).forEach(probe);
+  }
+
+  poll();
+  setInterval(poll, 15000);
+</script>
+</body>
+</html>
