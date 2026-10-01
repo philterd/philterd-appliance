@@ -26,6 +26,7 @@ nav:
   - Products:
       - Console: products/console.md
       - Philter Scope: products/philter-scope.md
+      - Local LLM: products/local-llm.md
   - Reference:
       - Health and metrics: observability.md
       - Image publishing: publishing.md

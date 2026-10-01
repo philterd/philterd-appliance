@@ -186,6 +186,10 @@ POLICY_EDITOR_PORT=8445
 ARBITER_PORT=8446
 PHILTERSCOPE_PORT=8447
 
+# Model pulled on first start of the full profile. About 3 GB. Drives both the
+# pull and the model Philter Scope asks for, so the two cannot drift apart.
+OLLAMA_MODEL=gemma3:4b
+
 # The one-shot audit writes reports into a host directory, so it runs as the
 # user that owns it rather than as the image's own account.
 APPLIANCE_UID=$(id -u)

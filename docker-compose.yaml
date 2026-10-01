@@ -96,6 +96,9 @@ services:
     command: ["philterscope-serve", "--port", "5000", "--privacy=${PHILTERSCOPE_PRIVACY:-true}"]
     environment:
       PHILTERSCOPE_MONGODB_CONNECTION_STRING: mongodb://mongodb:27017/philterscope
+      # Only reachable under the full profile, where Ollama runs.
+      PHILTERSCOPE_OLLAMA_URL: http://ollama:11434
+      PHILTERSCOPE_OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma3:4b}
     depends_on:
       mongodb:
         condition: service_healthy
@@ -119,6 +122,8 @@ services:
     user: "${APPLIANCE_UID:-1000}:${APPLIANCE_GID:-1000}"
     environment:
       PHILTERSCOPE_MONGODB_CONNECTION_STRING: mongodb://mongodb:27017/philterscope
+      PHILTERSCOPE_OLLAMA_URL: http://ollama:11434
+      PHILTERSCOPE_OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma3:4b}
     volumes:
       - ${PHILTERSCOPE_DATA:-./data/philterscope}:/data
     depends_on:
@@ -137,10 +142,44 @@ services:
       ARBITER_CRYPTO_SECRET: ${ARBITER_CRYPTO_SECRET:?run 'make bootstrap' first}
       ARBITER_ADMIN_INITIAL_PASSWORD: ${ARBITER_ADMIN_INITIAL_PASSWORD:?run 'make bootstrap' first}
       ARBITER_DEMO_DATA_ENABLED: "false"
+      # Arbiter refuses private-range data-source hosts as an SSRF guard, and
+      # every appliance service resolves to one. Named explicitly here.
+      # Relaxed binding for arbiter.data-sources.allowed-hosts.
+      ARBITER_DATASOURCES_ALLOWEDHOSTS: ollama,philter,opensearch
     depends_on:
       mongodb:
         condition: service_healthy
       opensearch:
+        condition: service_healthy
+    networks: [appliance]
+
+  # Local LLM, shared by Philter Scope's --ai suggestions and Arbiter's
+  # LLM-as-a-Judge. Nothing leaves the box, so prompts are not proxied.
+  ollama:
+    image: ollama/ollama:0.32.6
+    profiles: [full]
+    restart: unless-stopped
+    volumes:
+      - ollama-models:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks: [appliance]
+
+  # Ollama starts with no models. Pulls the configured one, then exits.
+  ollama-init:
+    image: ollama/ollama:0.32.6
+    profiles: [full]
+    entrypoint: ["/bin/sh", "-c"]
+    command: ['ollama pull "$${OLLAMA_MODEL}"']
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma3:4b}
+    depends_on:
+      ollama:
         condition: service_healthy
     networks: [appliance]
 
@@ -174,3 +213,4 @@ networks:
 volumes:
   mongo-data:
   opensearch-data:
+  ollama-models:

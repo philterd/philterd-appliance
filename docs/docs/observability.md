@@ -13,6 +13,7 @@ that falls short. Verified against the local checkouts on 2026-08-07.
 | Philter Scope | none | none | Go service. Its mux serves `/api/*` and `/`, with no health route. |
 | Arbiter | none | none | No actuator dependency in any of its three modules. |
 | MongoDB | not HTTP | none | Probed by compose with `mongosh`, not visible to the console. |
+| Ollama | `/api/tags` | none | Lists loaded models, so it proves the API works. |
 | OpenSearch | `/` on 9200 | available but off | Not currently surfaced. |
 
 ## The gaps

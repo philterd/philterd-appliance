@@ -38,7 +38,7 @@ the command line appears later and wins.
 | `--thresholds` | Per-entity thresholds, e.g. `NAME=0.9,SSN=1.0` |
 | `--policy` | Philter policy to audit against |
 | `--group` | Names the audit in the UI |
-| `--ai` | Enables policy recommendations, needs Ollama |
+| `--ai` | Enables policy recommendations, needs the `full` profile for [Ollama](local-llm.md) |
 
 Because it writes into a host directory, the audit runs as `APPLIANCE_UID` and
 `APPLIANCE_GID` rather than as the image's own account. `make bootstrap` fills

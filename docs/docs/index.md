@@ -19,10 +19,12 @@ your boundary.
 | Redaction Policy Editor | Building and editing policies |
 | Philter Scope | Scoring policies against a golden dataset |
 | Arbiter | Human review of detected spans |
+| Ollama | Local LLM, shared by Philter Scope and Arbiter |
 | Console | Launcher and status view over the rest |
 
 MongoDB backs Philter, Philter Scope and Arbiter. OpenSearch backs Arbiter's
-search. An nginx proxy terminates TLS in front of everything.
+search. Ollama runs locally, so no prompt leaves the machine. An nginx proxy
+terminates TLS in front of everything.
 
 ## Where to start
 

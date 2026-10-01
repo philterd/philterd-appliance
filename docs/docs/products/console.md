@@ -24,6 +24,7 @@ unreachable.
 | Policy editor | `/` | Serving or not |
 | Arbiter | `/` | Serving or not |
 | Philter Scope | `/` | Serving or not |
+| Ollama | `/api/tags` | Lists loaded models |
 
 Only Philter reports genuine health. A product can be serving its login page
 with a broken database connection and still show as running. See

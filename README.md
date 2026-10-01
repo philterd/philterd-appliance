@@ -36,6 +36,7 @@ use until it is trusted or replaced with one of your own.
 | Arbiter | 8446 | Human review of detected spans (`full` profile) |
 | Philter Scope | 8447 | Scoring policies against a golden dataset |
 | PhEye | internal | Detection models used by Philter |
+| Ollama | internal | Local LLM for Philter Scope and Arbiter (`full` profile) |
 
 MongoDB and OpenSearch back the products that need them. An nginx proxy
 terminates TLS in front of everything, and is the only service that binds to the

@@ -5,7 +5,7 @@
 | Profile | Services | Use |
 |---|---|---|
 | `core` (default) | console, Philter, PhEye, MongoDB, policy editor, Philter Scope | Redaction API, policy authoring and scoring |
-| `full` | core plus Arbiter and OpenSearch | Adds human-in-the-loop review |
+| `full` | core plus Arbiter, OpenSearch and Ollama | Adds human-in-the-loop review and a local LLM |
 | `tools` | one-shot commands, never started by `up` | Runs the Philter Scope audit |
 
 ```sh
@@ -24,8 +24,8 @@ admin UI.
 
 ## Ports
 
-Only the proxy binds to the host. Philter, PhEye, MongoDB and OpenSearch stay on
-the internal network.
+Only the proxy binds to the host. Philter, PhEye, MongoDB, OpenSearch and
+Ollama stay on the internal network.
 
 | Port | Service |
 |---|---|
