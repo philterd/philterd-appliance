@@ -2,42 +2,46 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://philterd.github.io/philterd-appliance/</loc>
-         <lastmod>2026-08-07</lastmod>
+         <lastmod>2026-10-01</lastmod>
     </url>
     <url>
          <loc>https://philterd.github.io/philterd-appliance/getting-started/</loc>
-         <lastmod>2026-08-07</lastmod>
+         <lastmod>2026-10-01</lastmod>
     </url>
     <url>
          <loc>https://philterd.github.io/philterd-appliance/observability/</loc>
-         <lastmod>2026-08-07</lastmod>
+         <lastmod>2026-10-01</lastmod>
     </url>
     <url>
          <loc>https://philterd.github.io/philterd-appliance/profiles-and-ports/</loc>
-         <lastmod>2026-08-07</lastmod>
+         <lastmod>2026-10-01</lastmod>
     </url>
     <url>
          <loc>https://philterd.github.io/philterd-appliance/publishing/</loc>
-         <lastmod>2026-08-07</lastmod>
+         <lastmod>2026-10-01</lastmod>
     </url>
     <url>
          <loc>https://philterd.github.io/philterd-appliance/configuration/bill-of-materials/</loc>
-         <lastmod>2026-08-07</lastmod>
+         <lastmod>2026-10-01</lastmod>
     </url>
     <url>
          <loc>https://philterd.github.io/philterd-appliance/configuration/secrets/</loc>
-         <lastmod>2026-08-07</lastmod>
+         <lastmod>2026-10-01</lastmod>
     </url>
     <url>
          <loc>https://philterd.github.io/philterd-appliance/configuration/tls/</loc>
-         <lastmod>2026-08-07</lastmod>
+         <lastmod>2026-10-01</lastmod>
     </url>
     <url>
          <loc>https://philterd.github.io/philterd-appliance/products/console/</loc>
-         <lastmod>2026-08-07</lastmod>
+         <lastmod>2026-10-01</lastmod>
+    </url>
+    <url>
+         <loc>https://philterd.github.io/philterd-appliance/products/local-llm/</loc>
+         <lastmod>2026-10-01</lastmod>
     </url>
     <url>
          <loc>https://philterd.github.io/philterd-appliance/products/philter-scope/</loc>
-         <lastmod>2026-08-07</lastmod>
+         <lastmod>2026-10-01</lastmod>
     </url>
 </urlset>
